@@ -2,13 +2,40 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Innovation Labs Map</title>
+  <title> Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    #map { height: 100vh; width: 100%; }
+   #map { height: 90vh; width: 100%; }
+    #controls {
+      margin: 10px;
+    }
+    #info-panel {
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      width: 300px;
+      max-height: 80vh;
+      overflow-y: auto;
+      background: white;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      display: none;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
+  // Add filter
+  <div id="controls">
+    <label for="themeFilter">Filter by Theme: </label>
+    <select id="themeFilter">
+      <option value="all">All</option>
+      <option value="Governance">Governance</option>
+      <option value="Sustainability">Sustainability</option>
+      <option value="Emerging Tech">Emerging Tech</option>
+    </select>
+  </div>
   <div id="map"></div>
 
   <!-- Leaflet -->
@@ -50,6 +77,12 @@
         });
       }
     });
+    document.getElementById('themeFilter').addEventListener("change", e => {
+      loadData(e.target.value);
+    });
+
+    loadData();
   </script>
 </body>
 </html>
+
