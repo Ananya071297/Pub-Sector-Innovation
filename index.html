@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Innovation Hubs Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    #map { height: 90vh; width: 100%; }
+    #controls {
+      margin: 10px;
+    }
+    #info-panel {
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      width: 300px;
+      max-height: 80vh;
+      overflow-y: auto;
+      background: white;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      display: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <label for="themeFilter">Filter by Theme: </label>
+    <select id="themeFilter">
+      <option value="all">All</option>
+      <option value="Governance">Governance</option>
+      <option value="Sustainability">Sustainability</option>
+      <option value="Emerging Tech">Emerging Tech</option>
+    </select>
+  </div>
+  <div id="map"></div>
+  <div id="info-panel"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+  <script>
+    const map = L.map('map').setView([20, 0], 2);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let markers = [];
+    const infoPanel = document.getElementById('info-panel');
+
+    function loadData(themeFilter = "all") {
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      Papa.parse("public_sector_innovation_hubs v.2.csv", {
+        download: true,
+        header: true,
+        complete: function(results) {
+          results.data.forEach(row => {
+            if (!row.lat || !row.lng) return;
+            if (themeFilter !== "all" && row.Theme !== themeFilter) return;
+
+            const marker = L.marker([parseFloat(row.lat), parseFloat(row.lng)]).addTo(map);
+            marker.on("click", () => {
+              infoPanel.style.display = "block";
+              infoPanel.innerHTML = `
+                <h3>${row["Org-Name"]}</h3>
+                <p><b>Country:</b> ${row.Country}</p>
+                <p><b>Org Type:</b> ${row.Org_type}</p>
+                <p><b>Theme:</b> ${row.Theme}</p>
+                <p><b>Focus Area:</b> ${row.focus_area}</p>
+                <p><b>Knowledge Products:</b> ${row.knowledge_products}</p>
+                <p><b>Partnerships:</b> ${row.partnerships}</p>
+                <p><b>Public Fora:</b> ${row.public_fora}</p>
+                <p><b>Website:</b> <a href="${row.website}" target="_blank">${row.website}</a></p>
+                ${row.Wiki ? `<p><b>Wiki:</b> <a href="${row.Wiki}" target="_blank">${row.Wiki}</a></p>` : ""}
+                <p><b>Short Description:</b> ${row.short_desc}</p>
+                <p><b>Long Description:</b> ${row.long_desc}</p>
+              `;
+            });
+            markers.push(marker);
+          });
+        }
+      });
+    }
+
+    document.getElementById('themeFilter').addEventListener("change", e => {
+      loadData(e.target.value);
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
