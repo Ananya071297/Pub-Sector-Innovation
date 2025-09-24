@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Innovation Hubs Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    #map { height: 90vh; width: 100%; }
+    #controls { margin: 10px; }
+    #controls label { margin-right: 10px; }
+    #controls select { margin-right: 20px; }
+
+    #info-panel {
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      width: 300px;
+      max-height: 80vh;
+      overflow-y: auto;
+      background: white;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      display: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <label for="themeFilter">Theme:</label>
+    <select id="themeFilter" multiple size="5"></select>
+
+    <label for="sectorFilter">Sector:</label>
+    <select id="sectorFilter" multiple size="5"></select>
+
+    <label for="orgTypeFilter">Org Type:</label>
+    <select id="orgTypeFilter">
+      <option value="all">All</option>
+    </select>
+
+    <button id="resetFilters">Reset Filters</button>
+  </div>
+
+  <div id="map"></div>
+  <div id="info-panel"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+  <script>
+    const map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let markers = [];
+    let allData = [];
+    const infoPanel = document.getElementById('info-panel');
+
+    // Helper: parse multi-tag fields
+    function parseTags(value) {
+      return value ? value.split(";").map(v => v.trim()) : [];
+    }
+
+    function populateFilters(data) {
+      const themeSet = new Set();
+      const sectorSet = new Set();
+      const orgTypeSet = new Set();
+
+      data.forEach(row => {
+        parseTags(row.Theme).forEach(t => themeSet.add(t));
+        parseTags(row.Sector).forEach(s => sectorSet.add(s));
+        if (row.Org_type) orgTypeSet.add(row.Org_type);
+      });
+
+      const themeFilter = document.getElementById('themeFilter');
+      themeSet.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        themeFilter.appendChild(opt);
+      });
+
+      const sectorFilter = document.getElementById('sectorFilter');
+      sectorSet.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        sectorFilter.appendChild(opt);
+      });
+
+      const orgTypeFilter = document.getElementById('orgTypeFilter');
+      orgTypeSet.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o;
+        opt.textContent = o;
+        orgTypeFilter.appendChild(opt);
+      });
+    }
+
+    function applyFilters() {
+      const selectedThemes = Array.from(document.getElementById('themeFilter').selectedOptions).map(o => o.value);
+      const selectedSectors = Array.from(document.getElementById('sectorFilter').selectedOptions).map(o => o.value);
+      const selectedOrgType = document.getElementById('orgTypeFilter').value;
+
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      allData.forEach(row => {
+        if (!row.lat || !row.lng) return;
+
+        const rowThemes = parseTags(row.Theme);
+        const rowSectors = parseTags(row.Sector);
+
+        // Filter by Theme (if any selected)
+        if (selectedThemes.length > 0 && !selectedThemes.some(t => rowThemes.includes(t))) return;
+
+        // Filter by Sector (if any selected)
+        if (selectedSectors.length > 0 && !selectedSectors.some(s => rowSectors.includes(s))) return;
+
+        // Filter by Org Type
+        if (selectedOrgType !== "all" && row.Org_type !== selectedOrgType) return;
+
+        const marker = L.marker([parseFloat(row.lat), parseFloat(row.lng)]).addTo(map);
+        marker.on("click", () => {
+          infoPanel.style.display = "block";
+          infoPanel.innerHTML = `
+            <h3>${row["Org-Name"]}</h3>
+            <p><b>Country:</b> ${row.Country}</p>
+            <p><b>Org Type:</b> ${row.Org_type}</p>
+            <p><b>Theme:</b> ${row.Theme}</p>
+            <p><b>Sector:</b> ${row.Sector}</p>
+            <p><b>Knowledge Products:</b> ${row.knowledge_products}</p>
+            <p><b>Partnerships:</b> ${row.partnerships}</p>
+            <p><b>Public Fora:</b> ${row.public_fora}</p>
+            <p><b>Website:</b> <a href="${row.website}" target="_blank">${row.website}</a></p>
+            <p><b>Short Description:</b> ${row.short_desc}</p>
+            <p><b>Long Description:</b> ${row.long_desc}</p>
+          `;
+        });
+        markers.push(marker);
+      });
+    }
+
+    function loadData() {
+      Papa.parse("PubSectorInnovationHubs_v3.csv", {
+        download: true,
+        header: true,
+        complete: function(results) {
+          allData = results.data;
+          populateFilters(allData);
+          applyFilters();
+        }
+      });
+    }
+
+    document.getElementById('themeFilter').addEventListener("change", applyFilters);
+    document.getElementById('sectorFilter').addEventListener("change", applyFilters);
+    document.getElementById('orgTypeFilter').addEventListener("change", applyFilters);
+    document.getElementById('resetFilters').addEventListener("click", () => {
+      document.getElementById('themeFilter').selectedIndex = -1;
+      document.getElementById('sectorFilter').selectedIndex = -1;
+      document.getElementById('orgTypeFilter').value = "all";
+      applyFilters();
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
